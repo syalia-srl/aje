@@ -1,0 +1,144 @@
+{
+  "_comment": "The shop link protocol, v=1, pinned for Ajé (web/test/shop.test.js) and aje-link (server/python). Made-up values.",
+  "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+  "links": [
+    {
+      "url": "https://shop.example/api/r",
+      "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "last4": "0001",
+      "text": "aje:aviso?v=1&u=https%3A%2F%2Fshop.example%2Fapi%2Fr&k=kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk&c=0001"
+    },
+    {
+      "url": "https://tienda.example/aje?x=1",
+      "key": "a1B2-c3_D4e5F6g7",
+      "last4": "7475",
+      "text": "aje:aviso?v=1&u=https%3A%2F%2Ftienda.example%2Faje%3Fx%3D1&k=a1B2-c3_D4e5F6g7&c=7475"
+    },
+    {
+      "url": "http://shop.example/r",
+      "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "last4": "0001",
+      "text": "aje:aviso?v=1&u=http%3A%2F%2Fshop.example%2Fr&k=kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk&c=0001",
+      "error": "not https"
+    },
+    {
+      "url": "https://shop.example/r",
+      "key": "short",
+      "last4": "0001",
+      "text": "aje:aviso?v=1&u=https%3A%2F%2Fshop.example%2Fr&k=short&c=0001",
+      "error": "short key"
+    },
+    {
+      "url": "https://shop.example/r",
+      "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "last4": "001",
+      "text": "aje:aviso?v=1&u=https%3A%2F%2Fshop.example%2Fr&k=kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk&c=001",
+      "error": "last4 not four digits"
+    }
+  ],
+  "signatures": [
+    {
+      "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "t": 1700000000,
+      "body": "{\"transaction\":\"KW1\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "header": "t=1700000000,v1=23de5d97994c17ab95d73ec8a188d4f15e7a116c293c17aca4725ac901bc79b1"
+    },
+    {
+      "key": "a1B2-c3_D4e5F6g7",
+      "t": 1793990000,
+      "body": "{\"a\":\"ñ\"}",
+      "header": "t=1793990000,v1=f7c3ba4745c47d55a47ea8edae5b9f83ac274ce97a5b72f1079a03bad4879a37"
+    }
+  ],
+  "reports": [
+    {
+      "body": "{\"transaction\":\"KW123ABCDE456\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=fcefce0e540d8bb1d53d0be3fcb4e0fa475defd5c1c6a7c2f20257c5c34f12f9",
+      "report": {
+        "transaction": "KW123ABCDE456",
+        "payer": "51234567",
+        "account": "9200XXXXXXXX0001",
+        "amount_cents": 150000
+      }
+    },
+    {
+      "body": "{\"transaction\":\"KW123ABCDE456\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=fcefce0e540d8bb1d53d0be3fcb4e0fa475defd5c1c6a7c2f20257c5c34f12f9",
+      "last4": "0001",
+      "report": {
+        "transaction": "KW123ABCDE456",
+        "payer": "51234567",
+        "account": "9200XXXXXXXX0001",
+        "amount_cents": 150000
+      }
+    },
+    {
+      "body": "{\"transaction\":\"KW9\",\"payer\":\"+53 5123-4567\",\"account\":\"9200000000000001\",\"amount\":\"0.50\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=bec935623f2526798dcbf57f2fc79dedea8305b5e680e779f15463a02b316788",
+      "report": {
+        "transaction": "KW9",
+        "payer": "51234567",
+        "account": "9200000000000001",
+        "amount_cents": 50
+      }
+    },
+    {
+      "body": "{\"transaction\":\"KW123ABCDE456\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=fcefce0e540d8bb1d53d0be3fcb4e0fa475defd5c1c6a7c2f20257c5c34f12f9",
+      "last4": "7475",
+      "error": "wrong_account"
+    },
+    {
+      "body": "{\"transaction\":\"KW123ABCDE456\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "now": 1793990301,
+      "header": "t=1793990000,v1=fcefce0e540d8bb1d53d0be3fcb4e0fa475defd5c1c6a7c2f20257c5c34f12f9",
+      "error": "stale_signature"
+    },
+    {
+      "body": "{\"transaction\":\"KW123ABCDE456\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=d9189621fa2b922b5e9a347bd40b0ed0b8009148981825e6742918db5cb09032",
+      "error": "bad_signature"
+    },
+    {
+      "body": "{\"transaction\":\"KW123ABCDE456\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "now": 1793990000,
+      "header": "t=abc,v1=00",
+      "error": "bad_signature"
+    },
+    {
+      "body": "{\"transaction\":\"KW123ABCDE456\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"1500.00\"}",
+      "now": 1793990000,
+      "header": null,
+      "error": "bad_signature"
+    },
+    {
+      "body": "{\"transaction\":\"KW1\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=b3d82fbaea0f14991dc0e2d22f473aece978d5f75224915be53b744b644d8005",
+      "error": "invalid_report"
+    },
+    {
+      "body": "{\"transaction\":\"KW1\",\"payer\":\"41234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"10.00\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=6b4edb1a77807b202f2551872e26c37eb499374cc2369664fa7097da587a2e78",
+      "error": "invalid_report"
+    },
+    {
+      "body": "{\"transaction\":\"KW1\",\"payer\":\"51234567\",\"account\":\"9200XXXXXXXX0001\",\"amount\":\"0\"}",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=1e8abd359607d829b53fa1f8f3f3c607f14de6765140f8d89faab177d47f2a10",
+      "error": "invalid_report"
+    },
+    {
+      "body": "not json",
+      "now": 1793990000,
+      "header": "t=1793990000,v1=f81be9c08f989a799857eeba6ba761bb20d4c78a56ec23dd44d2da10db9ee287",
+      "error": "invalid_report"
+    }
+  ]
+}
