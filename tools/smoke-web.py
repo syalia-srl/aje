@@ -3,6 +3,7 @@
     uv run --with playwright python tools/smoke-web.py [outdir]
 """
 
+import base64
 import functools
 import json
 import re
@@ -750,6 +751,37 @@ def pay_by_qr(page):
     assert "#/history" in page.url, page.url
 
 
+def qr_png(page, text, size=900):
+    """A screenshot-like PNG: the QR of `text` drawn by Ajé's own encoder in the middle of a white page."""
+    data = page.evaluate("""async ([text, size]) => {
+        const { qrSvg } = await import(new URL("core/qrimage.js", document.baseURI).href);
+        const c = document.createElement("canvas");
+        c.width = size; c.height = size * 2;
+        const g = c.getContext("2d");
+        g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+        if (text) {
+            const img = new Image();
+            img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(qrSvg(text));
+            await img.decode();
+            g.drawImage(img, size / 4, size / 2, size / 2, size / 2);
+        }
+        return c.toDataURL("image/png").split(",")[1];
+    }""", [text, size])
+    return {"name": "captura.png", "mimeType": "image/png", "buffer": base64.b64decode(data)}
+
+
+def qr_from_image(page):
+    """A QR on this phone's own screen goes in as a screenshot, read like a camera scan."""
+    page.goto(page.url.split("#")[0] + "#/qr")
+    expect(page.locator("#qr-msg")).to_contain_text("cámara", timeout=10_000)
+    page.locator("#qr-file").set_input_files(qr_png(page, None))
+    expect(page.locator("#qr-msg")).to_have_text("No encontré un QR en esa imagen.")
+    link = "aje:aviso?v=1&u=https%3A%2F%2Fshop.example%2Fr&k=" + "k" * 32 + "&c=0001"
+    page.locator("#qr-file").set_input_files(qr_png(page, link))
+    expect(page.locator("#link-ask")).to_contain_text("shop.example")
+    page.click("#link-no")
+
+
 def scanner_without_reader(page):
     # Review finding 1: a reader that does not load never opens the camera.
     page.route("**/vendor/qr/jsQR.js", lambda r: r.abort())
@@ -915,7 +947,7 @@ def inbox_from_sms(page):
 
 STEPS = [seed_card, deck, balance_with_login, saved_pin_logs_in, transfer_refuses_decimals, mobile_balance, history_and_verified_transfer, receipt_discreet, settle_history,
          double_tap_transfers_once, inbox_from_sms,
-         line_transfer_by_number, buy_plan_from_catalog, charge_with_the_sims_number, charge_by_qr, pay_by_qr, line_transfer_saved_key, line_transfer_forget_key, no_key_double_tap_sends_once, contact_with_landline, double_tap_sends_once, add_card_linked_bank, add_clasica_via_mitransfer, pending_card_resumes_guide, pending_card_resumes_ask, pending_card_already_in_use, import_backup, pay_bills, import_not_a_backup, update_beta, refused_login, already_authenticated_login, scanner_without_reader]
+         line_transfer_by_number, buy_plan_from_catalog, charge_with_the_sims_number, charge_by_qr, pay_by_qr, qr_from_image, line_transfer_saved_key, line_transfer_forget_key, no_key_double_tap_sends_once, contact_with_landline, double_tap_sends_once, add_card_linked_bank, add_clasica_via_mitransfer, pending_card_resumes_guide, pending_card_resumes_ask, pending_card_already_in_use, import_backup, pay_bills, import_not_a_backup, update_beta, refused_login, already_authenticated_login, scanner_without_reader]
 
 
 def main():

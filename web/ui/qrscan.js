@@ -10,6 +10,9 @@ const MESSAGES = {
   "bad-transfer": "Este QR de transferencia está incompleto",
   "bad-link": "Este QR de tienda está incompleto o no es seguro",
 };
+// An image is drawn with its longer side between these, so a small SVG is read as well as a large photo.
+const IMAGE_MIN = 600;
+const IMAGE_MAX = 1600;
 const EVERY_MS = 250;
 
 /** jsQR is a classic script, loaded once on first use. */
@@ -81,6 +84,43 @@ export function renderQrScan(ctx) {
   const onTest = (e) => handle(e.detail);
   if (ctx.bridge.kind === "mock") addEventListener("aje-qr", onTest);
 
+  // A QR on this phone's own screen (a shop's page, a charge sent in a chat) comes in as a screenshot.
+  const file = h("input", { type: "file", id: "qr-file", accept: "image/*", class: "sr", tabindex: "-1", "aria-hidden": "true" });
+  file.addEventListener("change", async () => {
+    const f = file.files[0];
+    file.value = "";
+    if (!f || done) return;
+    msg.textContent = "Leyendo la imagen…";
+    const jsQR = await loadReader().catch(() => null);
+    if (!jsQR) {
+      msg.textContent = "Ajé no pudo cargar el lector de QR.";
+      return;
+    }
+    const url = URL.createObjectURL(f);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const w0 = img.naturalWidth || IMAGE_MIN;
+      const h0 = img.naturalHeight || IMAGE_MIN;
+      const k = Math.min(IMAGE_MAX / Math.max(w0, h0), Math.max(1, IMAGE_MIN / Math.max(w0, h0)));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w0 * k);
+      canvas.height = Math.round(h0 * k);
+      const g = canvas.getContext("2d", { willReadFrequently: true });
+      g.fillStyle = "#fff";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const code = jsQR(g.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: "attemptBoth" });
+      if (code?.data) handle(code.data);
+      else if (!done) msg.textContent = "No encontré un QR en esa imagen.";
+    } catch {
+      if (!done) msg.textContent = "Ajé no pudo abrir esa imagen.";
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  });
+
   async function scan() {
     // The reader first: without it the camera is never opened.
     const jsQR = await loadReader().catch(() => null);
@@ -119,6 +159,8 @@ export function renderQrScan(ctx) {
     h("div", { class: "topbar" }, h("div", { class: "t" }, "Pagar con QR")),
     h("div", { class: "qrview" }, video),
     msg,
+    file,
+    h("button", { id: "qr-image", class: "btn ghost", onclick: () => file.click() }, "Leer QR de una imagen"),
     h("button", { id: "qr-number", class: "btn ghost", onclick: () => { stop(); ctx.go(`line-transfer?sub=${ctx.sims[0]?.subId ?? ""}`); } },
       "Escribir el número"));
   scan();
