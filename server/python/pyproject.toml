@@ -1,0 +1,10 @@
+[project]
+name = "aje-link"
+version = "0.1.0"
+description = "The receiving side of Ajé's shop link: the link QR, and reading a signed report of a received transfer."
+requires-python = ">=3.11"
+dependencies = ["segno>=1.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

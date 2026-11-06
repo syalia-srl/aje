@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { reportOf, sendReport, signature } from "../core/shop.js";
+import { parseShopLink } from "../core/qr.js";
 
 const SHOP = { url: "https://shop.example/r", host: "shop.example", key: "k".repeat(32), last4: "0001" };
 const NOTICE = { kind: "card-received", amount: "1500.00 CUP", number: "51234567", account: "9200XXXXXXXX0001", plan: null };
@@ -32,4 +34,19 @@ test("sending says whether the shop took the report, refused it, or should be as
   assert.equal(await sendReport(SHOP, report, { fetch: answer(422), now }), "refused");
   assert.equal(await sendReport(SHOP, report, { fetch: answer(502), now }), "later");
   assert.equal(await sendReport(SHOP, report, { fetch: async () => { throw new Error("offline"); }, now }), "later");
+});
+
+// The same vectors pin aje-link, the shops' side, in server/python.
+const LINK = JSON.parse(readFileSync(new URL("./fixtures/link-vectors.json", import.meta.url), "utf8"));
+
+test("Ajé reads every link the shops' library makes, and refuses what it refuses", () => {
+  for (const v of LINK.links) {
+    const got = parseShopLink(v.text);
+    if (v.error) assert.equal(got.ok, false, v.error);
+    else assert.deepEqual([got.ok, got.url, got.key, got.last4], [true, new URL(v.url).href, v.key, v.last4]);
+  }
+});
+
+test("Ajé signs as the shops' library verifies", async () => {
+  for (const v of LINK.signatures) assert.equal(await signature(v.key, v.body, v.t), v.header);
 });
