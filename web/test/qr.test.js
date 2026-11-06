@@ -68,3 +68,23 @@ test("an absurd amount is refused", () => {
   assert.deepEqual(parseCharge("aje:saldo?v=1&n=55555555&m=1000000"), { ok: false, reason: "bad" });
   assert.equal(parseCharge("aje:saldo?v=1&n=55555555&m=999999").amount, 999999);
 });
+
+import { parseShopLink, parseTransferQr } from "../core/qr.js";
+
+test("Transfermóvil's transfer QR gives the account and the line to confirm", () => {
+  assert.deepEqual(parseTransferQr("TRANSFERMOVIL_ETECSA,TRANSFERENCIA,9200000000000001,51234567"), { ok: true, account: "9200000000000001", phone: "51234567" });
+  assert.deepEqual(parseTransferQr("TRANSFERMOVIL_ETECSA,TRANSFERENCIA,9200000000000001,5351234567"), { ok: true, account: "9200000000000001", phone: "51234567" });
+  assert.deepEqual(parseTransferQr("TRANSFERMOVIL_ETECSA,TRANSFERENCIA,9200000000000001"), { ok: true, account: "9200000000000001", phone: null });
+  assert.equal(parseTransferQr("TRANSFERMOVIL_ETECSA,TRANSFERENCIA,92000000").reason, "bad");
+  assert.equal(parseTransferQr("aje:saldo?v=1&n=55555555").reason, "not-transfer");
+});
+
+test("a shop link needs https, a key and four digits", () => {
+  const key = "k".repeat(32);
+  const ok = parseShopLink(`aje:aviso?v=1&u=${encodeURIComponent("https://shop.example/api/r")}&k=${key}&c=0001`);
+  assert.deepEqual(ok, { ok: true, url: "https://shop.example/api/r", host: "shop.example", key, last4: "0001" });
+  assert.equal(parseShopLink(`aje:aviso?v=1&u=${encodeURIComponent("http://shop.example/api/r")}&k=${key}&c=0001`).reason, "bad");
+  assert.equal(parseShopLink(`aje:aviso?v=1&u=${encodeURIComponent("https://shop.example/api/r")}&k=short&c=0001`).reason, "bad");
+  assert.equal(parseShopLink(`aje:aviso?v=2&u=x&k=${key}&c=0001`).reason, "newer");
+  assert.equal(parseShopLink("aje:saldo?v=1&n=55555555").reason, "not-link");
+});

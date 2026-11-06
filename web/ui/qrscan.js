@@ -1,12 +1,14 @@
 // The QR tab: a camera viewfinder whose frames go to jsQR. An Ajé charge opens Enviar saldo filled in
 // with its number, name and amount; the person still taps Enviar and gives the key.
-import { parseCharge } from "../core/qr.js";
+import { parseCharge, parseShopLink, parseTransferQr } from "../core/qr.js";
 import { h } from "./dom.js";
 
 const MESSAGES = {
-  "not-aje": "Este QR no es de Ajé para recibir saldo",
+  "not-aje": "Este QR no es de Ajé ni una transferencia de Transfermóvil",
   newer: "Actualiza Ajé para leer este QR",
   bad: "Este QR de Ajé está incompleto",
+  "bad-transfer": "Este QR de transferencia está incompleto",
+  "bad-link": "Este QR de tienda está incompleto o no es seguro",
 };
 const EVERY_MS = 250;
 
@@ -24,7 +26,7 @@ function loadReader() {
 }
 
 export function renderQrScan(ctx) {
-  const msg = h("div", { id: "qr-msg", class: "hint" }, "Apunta al QR de Ajé de quien te pide saldo.");
+  const msg = h("div", { id: "qr-msg", class: "hint" }, "Apunta al QR de Ajé de quien te pide saldo, o a un QR de transferencia de Transfermóvil.");
   const video = h("video", { class: "qrcam", playsinline: true, muted: true });
   let stream = null;
   let done = false;
@@ -38,11 +40,34 @@ export function renderQrScan(ctx) {
   // Leaving the tab by any route (back, the nav, a scan) closes the camera and the listeners.
   addEventListener("hashchange", stop);
 
+  // A shop's link asks before it is kept: from then on Ajé tells that shop of transfers to one card.
+  function confirmLink(link) {
+    root.replaceChildren(
+      h("div", { class: "topbar" }, h("div", { class: "t" }, "Vincular una tienda")),
+      h("div", { class: "empty", id: "link-ask" },
+        h("p", {}, `¿Avisar a ${link.host} de las transferencias que lleguen a tu tarjeta terminada en ${link.last4}?`),
+        h("p", { class: "hint" }, "Ajé le enviará, de cada una, el número de transacción, el móvil que pagó y el monto. Nada más, y a nadie más. Puedes quitarlo en Ajustes.")),
+      h("button", { id: "link-yes", class: "btn", onclick: async () => { await ctx.store.linkShop(link); ctx.go("settings"); } }, "Vincular"),
+      h("button", { id: "link-no", class: "btn ghost", onclick: () => ctx.go("home") }, "Cancelar"));
+  }
+
   function handle(text) {
     if (done) return;
     const c = parseCharge(text);
     if (!c.ok) {
-      msg.textContent = MESSAGES[c.reason];
+      const t = parseTransferQr(text);
+      if (t.ok) {
+        stop();
+        ctx.go(`transfer?${new URLSearchParams({ to: t.account })}`);
+        return;
+      }
+      const link = parseShopLink(text);
+      if (link.ok) {
+        stop();
+        confirmLink(link);
+        return;
+      }
+      msg.textContent = MESSAGES[c.reason !== "not-aje" ? c.reason : t.reason === "bad" ? "bad-transfer" : link.reason === "not-link" ? "not-aje" : link.reason === "newer" ? "newer" : "bad-link"];
       return;
     }
     stop();
@@ -91,7 +116,7 @@ export function renderQrScan(ctx) {
   }
 
   const root = h("div", { id: "qr-scan" },
-    h("div", { class: "topbar" }, h("div", { class: "t" }, "Enviar saldo con QR")),
+    h("div", { class: "topbar" }, h("div", { class: "t" }, "Pagar con QR")),
     h("div", { class: "qrview" }, video),
     msg,
     h("button", { id: "qr-number", class: "btn ghost", onclick: () => { stop(); ctx.go(`line-transfer?sub=${ctx.sims[0]?.subId ?? ""}`); } },
