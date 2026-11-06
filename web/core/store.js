@@ -40,6 +40,10 @@ export async function openStore(backend, { now = Date.now, newId = () => crypto.
     imported: null,
     // What each background job last did: `{at, ok, fails, failDay, ...}` by job id (web/core/jobs.js).
     jobRuns: {},
+    // The shop the person linked by its QR, `{url, host, key, last4, linkedAt}`, and the reports of received
+    // transfers it has not taken yet (web/core/shop.js).
+    shop: null,
+    shopQueue: [],
   };
   // A document written by an older build may lack newer keys; defaults fill them in.
   const state = { ...defaults, ...loaded, settings: { ...defaults.settings, ...loaded?.settings } };
@@ -372,6 +376,30 @@ export async function openStore(backend, { now = Date.now, newId = () => crypto.
     /** When the app last asked GitHub for releases, and the update it found, if any. */
     async setUpdate(patch) {
       state.update = { ...state.update, ...patch };
+      await commit();
+    },
+
+    async linkShop({ url, host, key, last4 }) {
+      state.shop = { url, host, key, last4, linkedAt: now() };
+      state.shopQueue = [];
+      await commit();
+    },
+
+    async unlinkShop() {
+      state.shop = null;
+      state.shopQueue = [];
+      await commit();
+    },
+
+    /** Keeps a report until the shop takes it; one per transaction, since settle can read an SMS twice. */
+    async queueShopReport(report) {
+      if (state.shopQueue.some((r) => r.transaction === report.transaction)) return;
+      state.shopQueue = [...state.shopQueue, report];
+      await commit();
+    },
+
+    async dropShopReport(transaction) {
+      state.shopQueue = state.shopQueue.filter((r) => r.transaction !== transaction);
       await commit();
     },
 

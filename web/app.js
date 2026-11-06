@@ -77,6 +77,8 @@ async function boot() {
     config, store, backend: idbBackend("telemetry"), fetch: globalThis.fetch.bind(globalThis), userAgent: navigator.userAgent,
   });
   const workflow = createWorkflow({ bridge, store, telemetry });
+  // Reports of received transfers that a linked shop has not taken yet go out each time Ajé opens.
+  workflow.flushShop().catch(() => null);
 
   const crash = (error) => telemetry.event("crash", { error: String(error?.message ?? error).slice(0, 500), stack: String(error?.stack ?? "") });
   window.addEventListener("error", (e) => crash(e.error ?? e.message));

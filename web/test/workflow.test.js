@@ -14,7 +14,7 @@ const MIN = 60_000;
 const METRO_CARD = { alias: "Metro CUP", pan: "9227959900000001", bank: "METROPOLITANO", currency: "CUP" };
 const tick = () => new Promise((r) => setImmediate(r));
 
-async function world(replies = [], stateBackend = memoryBackend(), bridgeOptions = {}) {
+async function world(replies = [], stateBackend = memoryBackend(), bridgeOptions = {}, workflowOptions = {}) {
   const clock = { t: 1_000_000 };
   const now = () => clock.t;
   let ids = 0;
@@ -29,7 +29,7 @@ async function world(replies = [], stateBackend = memoryBackend(), bridgeOptions
     fetch: async (url, init) => { posted.push(init.body); return { ok: true, status: 204 }; },
   });
   const bridge = fakeBridge(replies, bridgeOptions);
-  const wf = createWorkflow({ bridge, store, telemetry, now, seed: () => 61 });
+  const wf = createWorkflow({ bridge, store, telemetry, now, seed: () => 61, ...workflowOptions });
   const sms = (body, sender = "PAGOxMOVIL") => wf.handleSms({ sender, body, receivedAt: clock.t });
   return { card, clock, now, store, telemetry, telemetryBackend, stateBackend, bridge, wf, posted, sms };
 }
@@ -1097,4 +1097,65 @@ test("a refused payment leaves no paid mark, and the Nauta SMS verifies the rech
   w.clock.t += 30_000;
   await w.sms(NAUTA_SMS);
   assert.deepEqual(w.store.state.bills[0].paid, { at: w.clock.t - 30_000, cents: 10000, verified: true });
+});
+
+// A linked shop hears of the transfers that reach its card, signed; one that cannot be sent waits for the next try.
+const SHOP = { url: "https://shop.example/api/credits/transfers/received", host: "shop.example", key: "k".repeat(32), last4: "0001" };
+
+function shopFetch(statuses) {
+  const sent = [];
+  const fetch = async (url, init) => {
+    sent.push({ url, init });
+    const status = statuses.length ? statuses.shift() : 200;
+    if (status === 0) throw new Error("offline");
+    return { ok: status < 300, status };
+  };
+  return { sent, fetch };
+}
+
+test("a transfer to the linked card is reported to the shop, signed", async () => {
+  const net = shopFetch([200]);
+  const w = await world([], memoryBackend(), {}, { fetch: net.fetch });
+  await w.store.linkShop(SHOP);
+  const v = vector("card-received");
+  await w.wf.handleSms({ sender: v.sender, body: v.body, sentAt: v.sentAt, receivedAt: w.clock.t });
+  assert.equal(net.sent.length, 1);
+  assert.equal(net.sent[0].url, SHOP.url);
+  assert.deepEqual(JSON.parse(net.sent[0].init.body), { transaction: "KW123ABCDE456", payer: "51234567", account: "9200XXXXXXXX0001", amount: "1500.00" });
+  assert.match(net.sent[0].init.headers["X-Signature"], /^t=\d+,v1=[0-9a-f]{64}$/);
+  assert.equal(w.store.state.shopQueue.length, 0);
+});
+
+test("a report that cannot be sent waits, and goes out on the next flush", async () => {
+  const net = shopFetch([0, 503, 200]);
+  const w = await world([], memoryBackend(), {}, { fetch: net.fetch });
+  await w.store.linkShop(SHOP);
+  const v = vector("card-received");
+  await w.wf.handleSms({ sender: v.sender, body: v.body, sentAt: v.sentAt, receivedAt: w.clock.t });
+  assert.equal(w.store.state.shopQueue.length, 1);
+  await w.wf.flushShop();
+  assert.equal(w.store.state.shopQueue.length, 1);
+  await w.wf.flushShop();
+  assert.equal(w.store.state.shopQueue.length, 0);
+  assert.equal(net.sent.length, 3);
+});
+
+test("a report the shop refuses is dropped, not retried", async () => {
+  const net = shopFetch([400]);
+  const w = await world([], memoryBackend(), {}, { fetch: net.fetch });
+  await w.store.linkShop(SHOP);
+  const v = vector("card-received");
+  await w.wf.handleSms({ sender: v.sender, body: v.body, sentAt: v.sentAt, receivedAt: w.clock.t });
+  assert.equal(w.store.state.shopQueue.length, 0);
+});
+
+test("without a link, or for another card, nothing leaves the phone", async () => {
+  const net = shopFetch([]);
+  const w = await world([], memoryBackend(), {}, { fetch: net.fetch });
+  const v = vector("card-received");
+  await w.wf.handleSms({ sender: v.sender, body: v.body, sentAt: v.sentAt, receivedAt: w.clock.t });
+  await w.store.linkShop({ ...SHOP, last4: "9999" });
+  const other = vector("card-received", (x) => x.body !== v.body);
+  await w.wf.handleSms({ sender: other.sender, body: other.body, sentAt: other.sentAt, receivedAt: w.clock.t });
+  assert.equal(net.sent.length, 0);
 });

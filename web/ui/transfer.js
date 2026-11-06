@@ -12,7 +12,9 @@ export function renderTransfer(ctx, r) {
   const { currency } = card;
   const bank = BANKS[card.bank]?.name ?? "";
   const clasica = card.bank === "CLASICA";
-  const to = h("input", { id: "tr-to", inputmode: "numeric", autocomplete: "off", placeholder: clasica ? "Cuenta del número de destino" : "9200 0000 0000 0000" });
+  // A transfer QR (qrscan.js) brings the destination account; the person still checks it and types the amount.
+  const given = /^\d{16}$/.test(r.query.get("to") ?? "") ? r.query.get("to").replace(/(\d{4})(?=\d)/g, "$1 ") : "";
+  const to = h("input", { id: "tr-to", inputmode: "numeric", autocomplete: "off", value: given, placeholder: clasica ? "Cuenta del número de destino" : "9200 0000 0000 0000" });
   const amount = h("input", { id: "tr-amount", inputmode: "numeric", autocomplete: "off" });
   const error = h("div", { id: "tr-error", class: "err", hidden: true });
   const fail = (text) => {

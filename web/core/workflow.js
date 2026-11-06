@@ -7,6 +7,7 @@ import { chargeUri } from "./qr.js";
 import { changeKey, transferBalance as transferBalanceCode } from "./lines.js";
 import { planCode } from "./plans.js";
 import { fnv1a, noticeOf } from "./notice.js";
+import { reportOf, sendReport } from "./shop.js";
 import { BANKISH, formatMoney, parseBankSms, parseDebtSms, parseLineSms, parsePlanSms, senderTag } from "./sms.js";
 import { WINDOW_MS } from "./store.js";
 import { DEFAULT_CONFIG, dial, display } from "./ussd.js";
@@ -22,7 +23,7 @@ const ALREADY_AUTH = /ya se encuentra autenticad/i;
 /** How far back settle reads the SMS inbox; the shell never reads further. */
 export const SETTLE_MS = 72 * 60 * 60 * 1000;
 
-export function createWorkflow({ bridge, store, telemetry, now = Date.now, seed = randomSeed, config = DEFAULT_CONFIG }) {
+export function createWorkflow({ bridge, store, telemetry, now = Date.now, seed = randomSeed, config = DEFAULT_CONFIG, fetch = (url, init) => globalThis.fetch(url, init) }) {
   const settings = () => store.state.settings;
   const cardOf = (id) => {
     const c = store.state.cards.find((x) => x.id === id);
@@ -570,7 +571,23 @@ export function createWorkflow({ bridge, store, telemetry, now = Date.now, seed 
     if (store.state.inbox.some((n) => n.id === id) || (await store.seen(id))) return notice;
     const row = notice.kind === "plan-expiry" ? null : await store.addReceived(notice, receivedAt, { cardId: cardOfAccount(notice.account) });
     await addNotice(notice, id, row, receivedAt);
+    const report = reportOf(store.state.shop, notice, body, id);
+    if (report) {
+      await store.queueShopReport(report);
+      await flushShop();
+    }
     return notice;
+  }
+
+  /** Sends the linked shop what it has not taken yet, oldest first; a failure leaves the rest for next time. */
+  async function flushShop() {
+    for (const report of [...store.state.shopQueue]) {
+      const shop = store.state.shop;
+      if (!shop) return;
+      const result = await sendReport(shop, report, { fetch, now });
+      if (result === "later") return;
+      await store.dropShopReport(report.transaction);
+    }
   }
 
   async function handleLineSms(sms, { sender, tag, body, sentAt, receivedAt }) {
@@ -591,5 +608,5 @@ export function createWorkflow({ bridge, store, telemetry, now = Date.now, seed 
     return sms;
   }
 
-  return { balance, login, loginWithSaved, savedPin, forgetPin, registerBank, registerMiTransfer, sessionOf, linkCard, associateClasica, movements, transfer, payBill, debtQuery, mobileBalance, refreshBalance, transferBalance, savedLineKey, forgetLineKey, changeLineKey, transfersToday, buyPlan, charge, handleSms, openNotice, settle };
+  return { flushShop, balance, login, loginWithSaved, savedPin, forgetPin, registerBank, registerMiTransfer, sessionOf, linkCard, associateClasica, movements, transfer, payBill, debtQuery, mobileBalance, refreshBalance, transferBalance, savedLineKey, forgetLineKey, changeLineKey, transfersToday, buyPlan, charge, handleSms, openNotice, settle };
 }
