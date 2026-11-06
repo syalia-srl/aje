@@ -40,7 +40,7 @@ export async function openStore(backend, { now = Date.now, newId = () => crypto.
     imported: null,
     // What each background job last did: `{at, ok, fails, failDay, ...}` by job id (web/core/jobs.js).
     jobRuns: {},
-    // The shops the person linked by their QR, `{url, host, key, last4, linkedAt}`, one per url, and the
+    // The shops the person linked by their QR, `{url, host, key, last4, linkedAt}`, one per card, and the
     // reports of received transfers each has not taken yet, `{url, ...report}` (web/core/shop.js).
     shops: [],
     shopQueue: [],
@@ -386,10 +386,15 @@ export async function openStore(backend, { now = Date.now, newId = () => crypto.
       await commit();
     },
 
-    /** Links a shop; linking a url again replaces its key and card, and drops what was queued under the old key. */
+    /**
+     * Links a shop. A card reports to one shop, since its SMS cannot say which shop a transfer was for: the shop
+     * on the same card, and the same url linked before, are replaced with what was queued for them.
+     */
     async linkShop({ url, host, key, last4 }) {
-      state.shops = [...state.shops.filter((s) => s.url !== url), { url, host, key, last4, linkedAt: now() }];
-      state.shopQueue = state.shopQueue.filter((r) => r.url !== url);
+      const gone = new Set(state.shops.filter((s) => s.url === url || s.last4 === last4).map((s) => s.url));
+      gone.add(url);
+      state.shops = [...state.shops.filter((s) => !gone.has(s.url)), { url, host, key, last4, linkedAt: now() }];
+      state.shopQueue = state.shopQueue.filter((r) => !gone.has(r.url));
       await commit();
     },
 

@@ -731,17 +731,23 @@ def pay_by_qr(page):
     expect(page.locator("#link-again")).to_have_count(0)
     page.click("#link-yes")
     expect(page.locator(".shop-link")).to_contain_text("terminada en 0001")
-    # A second shop joins the first; scanning the first again replaces it instead of adding a third.
-    for link in ["aje:aviso?v=1&u=https%3A%2F%2Fotra.example%2Fr&k=" + "o" * 32 + "&c=0002",
-                 "aje:aviso?v=1&u=https%3A%2F%2Fshop.example%2Fr&k=" + "n" * 32 + "&c=0003"]:
+    # A shop on another card joins the first; scanning the first again replaces it; a third shop on the
+    # second shop's card takes that card over, and the confirm screen says so first.
+    for link, again in [("aje:aviso?v=1&u=https%3A%2F%2Fotra.example%2Fr&k=" + "o" * 32 + "&c=0002", None),
+                        ("aje:aviso?v=1&u=https%3A%2F%2Fshop.example%2Fr&k=" + "n" * 32 + "&c=0003", "Ya avisas a shop.example"),
+                        ("aje:aviso?v=1&u=https%3A%2F%2Ftercera.example%2Fr&k=" + "t" * 32 + "&c=0002", "dejará de recibir avisos")]:
         page.goto(page.url.split("#")[0] + "#/qr")
         expect(page.locator("#qr-msg")).to_contain_text("cámara", timeout=10_000)
         page.evaluate("(t) => dispatchEvent(new CustomEvent('aje-qr', { detail: t }))", link)
         expect(page.locator("#link-ask")).to_be_visible()
-        expect(page.locator("#link-again")).to_have_count(1 if "shop.example" in link else 0)
+        if again:
+            expect(page.locator("#link-again")).to_contain_text(again)
+        else:
+            expect(page.locator("#link-again")).to_have_count(0)
         page.click("#link-yes")
     expect(page.locator(".shop-link")).to_have_count(2)
     expect(page.locator('.shop-link[data-url="https://shop.example/r"]')).to_contain_text("terminada en 0003")
+    expect(page.locator('.shop-link[data-url="https://otra.example/r"]')).to_have_count(0)
     page.locator('.shop-link[data-url="https://shop.example/r"] .shop-unlink').click()
     expect(page.locator(".shop-link")).to_have_count(1)
     page.locator(".shop-unlink").click()

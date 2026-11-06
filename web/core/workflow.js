@@ -571,7 +571,7 @@ export function createWorkflow({ bridge, store, telemetry, now = Date.now, seed 
     if (store.state.inbox.some((n) => n.id === id) || (await store.seen(id))) return notice;
     const row = notice.kind === "plan-expiry" ? null : await store.addReceived(notice, receivedAt, { cardId: cardOfAccount(notice.account) });
     await addNotice(notice, id, row, receivedAt);
-    // Every shop linked to the card that received hears of it: which order it pays is the shop's to know.
+    // The shop linked to the card that received hears of it; which order it pays is the shop's to know.
     const reports = store.state.shops.map((shop) => [shop.url, reportOf(shop, notice, body, id)]).filter(([, r]) => r);
     for (const [url, report] of reports) await store.queueShopReport(url, report);
     if (reports.length) await flushShop();
