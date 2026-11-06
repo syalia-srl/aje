@@ -525,12 +525,12 @@ def scan_reads_bill(p, base, out, errors):
 
 
 FAKE_RELEASES = [{
-    "tag_name": "v9.9.0-beta.1", "prerelease": True, "draft": False, "html_url": "https://github.com/apiad/aje/releases/tag/v9.9.0-beta.1",
+    "tag_name": "v9.9.0-beta.1", "prerelease": True, "draft": False, "html_url": "https://github.com/syalia-srl/aje/releases/tag/v9.9.0-beta.1",
     "assets": [
         {"name": "aje-9.9.0-beta.1-999.apk", "size": 7_400_000, "digest": "sha256:" + "ab" * 32,
-         "browser_download_url": "https://github.com/apiad/aje/releases/download/v9.9.0-beta.1/aje-9.9.0-beta.1-999.apk"},
+         "browser_download_url": "https://github.com/syalia-srl/aje/releases/download/v9.9.0-beta.1/aje-9.9.0-beta.1-999.apk"},
         {"name": "aje-9.9.0-beta.1-999.apk.sha256", "size": 90,
-         "browser_download_url": "https://github.com/apiad/aje/releases/download/v9.9.0-beta.1/aje-9.9.0-beta.1-999.apk.sha256"},
+         "browser_download_url": "https://github.com/syalia-srl/aje/releases/download/v9.9.0-beta.1/aje-9.9.0-beta.1-999.apk.sha256"},
     ],
 }]
 
