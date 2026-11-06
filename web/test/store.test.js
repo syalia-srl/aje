@@ -292,3 +292,37 @@ test("moveCard moves past the default card, which stays first", async () => {
   await s.moveCard(b.id, -1);
   assert.deepEqual(s.state.cards.map((x) => x.id), [b.id, d.id, a.id]);
 });
+
+test("the one shop of an older build becomes a list of one, with its queue", async () => {
+  const shop = { url: "https://shop.example/r", host: "shop.example", key: "k".repeat(32), last4: "0001", linkedAt: 5 };
+  const report = { transaction: "T1", payer: "51234567", account: "9200XXXXXXXX0001", amount: "10.00" };
+  const s = await openStore(memoryBackend({ shop, shopQueue: [report] }));
+  assert.deepEqual(s.state.shops, [shop]);
+  assert.deepEqual(s.state.shopQueue, [{ url: shop.url, ...report }]);
+  assert.equal("shop" in s.state, false);
+  const none = await openStore(memoryBackend({ shop: null, shopQueue: [] }));
+  assert.deepEqual(none.state.shops, []);
+});
+
+test("one shop per card: linking replaces the same url or the shop on the same card, with its reports", async () => {
+  const s = await openStore(memoryBackend(), { now: () => 1 });
+  const a = { url: "https://a.example/r", host: "a.example", key: "a".repeat(32), last4: "0001" };
+  const b = { url: "https://b.example/r", host: "b.example", key: "b".repeat(32), last4: "0002" };
+  await s.linkShop(a);
+  await s.linkShop(b);
+  await s.queueShopReport(a.url, { transaction: "T1" });
+  await s.queueShopReport(b.url, { transaction: "T1" });
+  await s.queueShopReport(b.url, { transaction: "T1" });
+  assert.equal(s.state.shopQueue.length, 2);
+  // The same url again: a new key and card, nothing queued under the old key.
+  await s.linkShop({ ...a, key: "c".repeat(32), last4: "0003" });
+  assert.deepEqual(s.state.shops.map((x) => [x.url, x.last4]), [[b.url, "0002"], [a.url, "0003"]]);
+  assert.deepEqual(s.state.shopQueue.map((r) => r.url), [b.url]);
+  // Another shop on b's card replaces b.
+  const c = { url: "https://c.example/r", host: "c.example", key: "d".repeat(32), last4: "0002" };
+  await s.linkShop(c);
+  assert.deepEqual(s.state.shops.map((x) => x.url), [a.url, c.url]);
+  assert.deepEqual(s.state.shopQueue, []);
+  await s.unlinkShop(c.url);
+  assert.deepEqual(s.state.shops.map((x) => x.url), [a.url]);
+});

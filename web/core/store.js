@@ -40,9 +40,9 @@ export async function openStore(backend, { now = Date.now, newId = () => crypto.
     imported: null,
     // What each background job last did: `{at, ok, fails, failDay, ...}` by job id (web/core/jobs.js).
     jobRuns: {},
-    // The shop the person linked by its QR, `{url, host, key, last4, linkedAt}`, and the reports of received
-    // transfers it has not taken yet (web/core/shop.js).
-    shop: null,
+    // The shops the person linked by their QR, `{url, host, key, last4, linkedAt}`, one per card, and the
+    // reports of received transfers each has not taken yet, `{url, ...report}` (web/core/shop.js).
+    shops: [],
     shopQueue: [],
   };
   // A document written by an older build may lack newer keys; defaults fill them in.
@@ -54,6 +54,13 @@ export async function openStore(backend, { now = Date.now, newId = () => crypto.
   delete state.installId;
   // Levels of the *133 menu read over the API, which the plan catalog replaced.
   delete state.planMenus;
+  // Builds up to 1.2.0-beta.4 kept one shop, and a queue of reports for it.
+  if ("shop" in state) {
+    const old = state.shop;
+    if (old && !state.shops.some((s) => s.url === old.url)) state.shops = [...state.shops, old];
+    state.shopQueue = old ? state.shopQueue.map((r) => (r.url ? r : { url: old.url, ...r })) : [];
+    delete state.shop;
+  }
   const listeners = new Set();
   // An imported card is linked on trust until the bank serves it once (see trm.js and import.js).
   function confirmCard(cardId) {
@@ -379,27 +386,33 @@ export async function openStore(backend, { now = Date.now, newId = () => crypto.
       await commit();
     },
 
+    /**
+     * Links a shop. A card reports to one shop, since its SMS cannot say which shop a transfer was for: the shop
+     * on the same card, and the same url linked before, are replaced with what was queued for them.
+     */
     async linkShop({ url, host, key, last4 }) {
-      state.shop = { url, host, key, last4, linkedAt: now() };
-      state.shopQueue = [];
+      const gone = new Set(state.shops.filter((s) => s.url === url || s.last4 === last4).map((s) => s.url));
+      gone.add(url);
+      state.shops = [...state.shops.filter((s) => !gone.has(s.url)), { url, host, key, last4, linkedAt: now() }];
+      state.shopQueue = state.shopQueue.filter((r) => !gone.has(r.url));
       await commit();
     },
 
-    async unlinkShop() {
-      state.shop = null;
-      state.shopQueue = [];
+    async unlinkShop(url) {
+      state.shops = state.shops.filter((s) => s.url !== url);
+      state.shopQueue = state.shopQueue.filter((r) => r.url !== url);
       await commit();
     },
 
-    /** Keeps a report until the shop takes it; one per transaction, since settle can read an SMS twice. */
-    async queueShopReport(report) {
-      if (state.shopQueue.some((r) => r.transaction === report.transaction)) return;
-      state.shopQueue = [...state.shopQueue, report];
+    /** Keeps a report until the shop at `url` takes it; one per shop and transaction, since settle can read an SMS twice. */
+    async queueShopReport(url, report) {
+      if (state.shopQueue.some((r) => r.url === url && r.transaction === report.transaction)) return;
+      state.shopQueue = [...state.shopQueue, { url, ...report }];
       await commit();
     },
 
-    async dropShopReport(transaction) {
-      state.shopQueue = state.shopQueue.filter((r) => r.transaction !== transaction);
+    async dropShopReport(url, transaction) {
+      state.shopQueue = state.shopQueue.filter((r) => !(r.url === url && r.transaction === transaction));
       await commit();
     },
 

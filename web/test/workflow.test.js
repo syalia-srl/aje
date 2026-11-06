@@ -1149,6 +1149,28 @@ test("a report the shop refuses is dropped, not retried", async () => {
   assert.equal(w.store.state.shopQueue.length, 0);
 });
 
+test("a transfer goes to the shop on its card only, and a shop that is down holds back no other", async () => {
+  const net = shopFetch([]);
+  const down = new Set(["https://b.example/r"]);
+  const fetch = async (url, init) => (down.has(url) ? { ok: false, status: 502 } : net.fetch(url, init));
+  const w = await world([], memoryBackend(), {}, { fetch });
+  await w.store.linkShop({ ...SHOP, url: "https://a.example/r", host: "a.example" });
+  await w.store.linkShop({ ...SHOP, url: "https://b.example/r", host: "b.example", key: "b".repeat(32), last4: "0002" });
+  const v = vector("card-received");
+  await w.wf.handleSms({ sender: v.sender, body: v.body, sentAt: v.sentAt, receivedAt: w.clock.t });
+  assert.deepEqual(net.sent.map((x) => x.url), ["https://a.example/r"]);
+  // b's report waits behind its outage; a's next one still goes out.
+  await w.store.queueShopReport("https://b.example/r", { transaction: "B1", payer: "51234567", account: "9200XXXXXXXX0002", amount: "5.00" });
+  await w.store.queueShopReport("https://a.example/r", { transaction: "A2", payer: "51234567", account: "9200XXXXXXXX0001", amount: "5.00" });
+  await w.wf.flushShop();
+  assert.deepEqual(net.sent.map((x) => x.url), ["https://a.example/r", "https://a.example/r"]);
+  assert.deepEqual(w.store.state.shopQueue.map((r) => r.transaction), ["B1"]);
+  down.clear();
+  await w.wf.flushShop();
+  assert.equal(net.sent.at(-1).url, "https://b.example/r");
+  assert.equal(w.store.state.shopQueue.length, 0);
+});
+
 test("without a link, or for another card, nothing leaves the phone", async () => {
   const net = shopFetch([]);
   const w = await world([], memoryBackend(), {}, { fetch: net.fetch });

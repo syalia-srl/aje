@@ -43,13 +43,25 @@ export function renderQrScan(ctx) {
   // Leaving the tab by any route (back, the nav, a scan) closes the camera and the listeners.
   addEventListener("hashchange", stop);
 
+  // A card reports to one shop: linking says which earlier link this one replaces.
+  function replacing(shops, link) {
+    const same = shops.find((s) => s.url === link.url);
+    const card = shops.find((s) => s.url !== link.url && s.last4 === link.last4);
+    const lines = [
+      same ? `Ya avisas a ${same.host}. Vincular de nuevo cambia su clave y su tarjeta.` : null,
+      card ? `La tarjeta terminada en ${link.last4} ya avisa a ${card.host}. Cada tarjeta avisa a una sola tienda: ${card.host} dejará de recibir avisos.` : null,
+    ].filter(Boolean);
+    return lines.length ? h("p", { class: "hint", id: "link-again" }, lines.join(" ")) : null;
+  }
+
   // A shop's link asks before it is kept: from then on Ajé tells that shop of transfers to one card.
   function confirmLink(link) {
     root.replaceChildren(
       h("div", { class: "topbar" }, h("div", { class: "t" }, "Vincular una tienda")),
       h("div", { class: "empty", id: "link-ask" },
         h("p", {}, `¿Avisar a ${link.host} de las transferencias que lleguen a tu tarjeta terminada en ${link.last4}?`),
-        h("p", { class: "hint" }, "Ajé le enviará, de cada una, el número de transacción, el móvil que pagó y el monto. Nada más, y a nadie más. Puedes quitarlo en Ajustes.")),
+        h("p", { class: "hint" }, "Ajé le enviará, de cada una, el número de transacción, el móvil que pagó y el monto. Nada más, y a nadie más. Puedes quitarlo en Ajustes."),
+        replacing(ctx.store.state.shops, link)),
       h("button", { id: "link-yes", class: "btn", onclick: async () => { await ctx.store.linkShop(link); ctx.go("settings"); } }, "Vincular"),
       h("button", { id: "link-no", class: "btn ghost", onclick: () => ctx.go("home") }, "Cancelar"));
   }

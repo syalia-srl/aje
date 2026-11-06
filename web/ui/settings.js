@@ -59,13 +59,16 @@ export function renderSettings(ctx) {
       h("div", { class: "tx" }, h("b", {}, "Importar de Transfermóvil"), h("span", {}, "Tus tarjetas, destinatarios y contratos, desde su respaldo.")),
       h("button", { id: "import-tm-settings", class: "addchip", onclick: () => ctx.go("import") }, "Importar")),
 
-    store.state.shop ? [
-      h("div", { class: "group" }, "Tienda vinculada"),
-      h("div", { class: "set-row", id: "shop-link" },
-        h("div", { class: "tx" }, h("b", {}, store.state.shop.host),
-          h("span", {}, `Le avisas de las transferencias a la tarjeta terminada en ${store.state.shop.last4}`,
-            store.state.shopQueue.length ? ` · ${store.state.shopQueue.length} por enviar` : "")),
-        h("button", { id: "shop-unlink", class: "addchip", onclick: () => store.unlinkShop() }, "Quitar")),
+    store.state.shops.length ? [
+      h("div", { class: "group" }, store.state.shops.length === 1 ? "Tienda vinculada" : "Tiendas vinculadas"),
+      store.state.shops.map((shop) => {
+        const waiting = store.state.shopQueue.filter((r) => r.url === shop.url).length;
+        return h("div", { class: "set-row shop-link", "data-url": shop.url },
+          h("div", { class: "tx" }, h("b", {}, shop.host),
+            h("span", {}, `Le avisas de las transferencias a la tarjeta terminada en ${shop.last4}`,
+              waiting ? ` · ${waiting} por enviar` : "")),
+          h("button", { class: "addchip shop-unlink", onclick: () => store.unlinkShop(shop.url) }, "Quitar"));
+      }),
     ] : null,
 
     updateSettings(ctx, chips),

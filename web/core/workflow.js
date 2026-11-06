@@ -571,22 +571,25 @@ export function createWorkflow({ bridge, store, telemetry, now = Date.now, seed 
     if (store.state.inbox.some((n) => n.id === id) || (await store.seen(id))) return notice;
     const row = notice.kind === "plan-expiry" ? null : await store.addReceived(notice, receivedAt, { cardId: cardOfAccount(notice.account) });
     await addNotice(notice, id, row, receivedAt);
-    const report = reportOf(store.state.shop, notice, body, id);
-    if (report) {
-      await store.queueShopReport(report);
-      await flushShop();
-    }
+    // The shop linked to the card that received hears of it; which order it pays is the shop's to know.
+    const reports = store.state.shops.map((shop) => [shop.url, reportOf(shop, notice, body, id)]).filter(([, r]) => r);
+    for (const [url, report] of reports) await store.queueShopReport(url, report);
+    if (reports.length) await flushShop();
     return notice;
   }
 
-  /** Sends the linked shop what it has not taken yet, oldest first; a failure leaves the rest for next time. */
+  /**
+   * Sends each linked shop what it has not taken yet, oldest first. A failure leaves the rest of that shop's
+   * reports for next time and does not hold back the other shops.
+   */
   async function flushShop() {
-    for (const report of [...store.state.shopQueue]) {
-      const shop = store.state.shop;
-      if (!shop) return;
-      const result = await sendReport(shop, report, { fetch, now });
-      if (result === "later") return;
-      await store.dropShopReport(report.transaction);
+    const waiting = new Set();
+    for (const { url, ...report } of [...store.state.shopQueue]) {
+      if (waiting.has(url)) continue;
+      const shop = store.state.shops.find((s) => s.url === url);
+      const result = shop ? await sendReport(shop, report, { fetch, now }) : "gone";
+      if (result === "later") waiting.add(url);
+      else await store.dropShopReport(url, report.transaction);
     }
   }
 
