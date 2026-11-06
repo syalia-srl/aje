@@ -1149,6 +1149,25 @@ test("a report the shop refuses is dropped, not retried", async () => {
   assert.equal(w.store.state.shopQueue.length, 0);
 });
 
+test("every shop linked to the card hears of a transfer, and one that is down does not hold back the others", async () => {
+  const net = shopFetch([]);
+  const down = new Set(["https://b.example/r"]);
+  const fetch = async (url, init) => (down.has(url) ? { ok: false, status: 502 } : net.fetch(url, init));
+  const w = await world([], memoryBackend(), {}, { fetch });
+  await w.store.linkShop({ ...SHOP, url: "https://a.example/r", host: "a.example" });
+  await w.store.linkShop({ ...SHOP, url: "https://b.example/r", host: "b.example", key: "b".repeat(32) });
+  await w.store.linkShop({ ...SHOP, url: "https://c.example/r", host: "c.example", last4: "9999" });
+  const v = vector("card-received");
+  await w.wf.handleSms({ sender: v.sender, body: v.body, sentAt: v.sentAt, receivedAt: w.clock.t });
+  assert.deepEqual(net.sent.map((x) => x.url), ["https://a.example/r"]);
+  assert.deepEqual(w.store.state.shopQueue.map((r) => r.url), ["https://b.example/r"]);
+  down.clear();
+  await w.wf.flushShop();
+  assert.deepEqual(net.sent.map((x) => x.url), ["https://a.example/r", "https://b.example/r"]);
+  assert.notEqual(net.sent[0].init.headers["X-Signature"], net.sent[1].init.headers["X-Signature"]);
+  assert.equal(w.store.state.shopQueue.length, 0);
+});
+
 test("without a link, or for another card, nothing leaves the phone", async () => {
   const net = shopFetch([]);
   const w = await world([], memoryBackend(), {}, { fetch: net.fetch });

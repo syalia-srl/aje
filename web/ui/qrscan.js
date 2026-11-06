@@ -49,7 +49,9 @@ export function renderQrScan(ctx) {
       h("div", { class: "topbar" }, h("div", { class: "t" }, "Vincular una tienda")),
       h("div", { class: "empty", id: "link-ask" },
         h("p", {}, `¿Avisar a ${link.host} de las transferencias que lleguen a tu tarjeta terminada en ${link.last4}?`),
-        h("p", { class: "hint" }, "Ajé le enviará, de cada una, el número de transacción, el móvil que pagó y el monto. Nada más, y a nadie más. Puedes quitarlo en Ajustes.")),
+        h("p", { class: "hint" }, "Ajé le enviará, de cada una, el número de transacción, el móvil que pagó y el monto. Nada más, y a nadie más. Puedes quitarlo en Ajustes."),
+        ctx.store.state.shops.some((s) => s.url === link.url)
+          ? h("p", { class: "hint", id: "link-again" }, `Ya avisas a ${link.host}. Vincular de nuevo cambia su clave y su tarjeta.`) : null),
       h("button", { id: "link-yes", class: "btn", onclick: async () => { await ctx.store.linkShop(link); ctx.go("settings"); } }, "Vincular"),
       h("button", { id: "link-no", class: "btn ghost", onclick: () => ctx.go("home") }, "Cancelar"));
   }
