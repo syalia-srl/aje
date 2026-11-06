@@ -10,7 +10,7 @@ const HOUR = 3_600_000;
 const SHA = "a".repeat(64);
 const release = (version, code, prerelease = false) => ({
   tag_name: `v${version}`, prerelease, draft: false, html_url: "",
-  assets: [{ name: `aje-${version}-${code}.apk`, digest: `sha256:${SHA}`, browser_download_url: `https://github.com/apiad/aje/releases/download/v${version}/aje-${version}-${code}.apk` }],
+  assets: [{ name: `aje-${version}-${code}.apk`, digest: `sha256:${SHA}`, browser_download_url: `https://github.com/syalia-srl/aje/releases/download/v${version}/aje-${version}-${code}.apk` }],
 });
 
 function fakeBridge() {

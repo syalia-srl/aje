@@ -20,7 +20,7 @@ import java.security.MessageDigest
  * the release.
  */
 object Updater {
-    private const val RELEASES = "https://github.com/apiad/aje/releases/download/"
+    private const val RELEASES = "https://github.com/syalia-srl/aje/releases/download/"
     private val HEX64 = Regex("^[0-9a-f]{64}$")
 
     fun install(activity: MainActivity, url: String, sha256: String, progress: (Long, Long) -> Unit, done: (JSONObject) -> Unit) {

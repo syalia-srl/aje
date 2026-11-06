@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkForUpdate, parseRelease, pickUpdate, shouldAutoCheck } from "../core/update.js";
 
-const asset = (name) => ({ name, browser_download_url: `https://github.com/apiad/aje/releases/download/x/${name}`, size: 7_000_000, digest: `sha256:${"ab".repeat(32)}` });
+const asset = (name) => ({ name, browser_download_url: `https://github.com/syalia-srl/aje/releases/download/x/${name}`, size: 7_000_000, digest: `sha256:${"ab".repeat(32)}` });
 const release = (tag, code, prerelease = false, draft = false) => ({
-  tag_name: tag, name: tag, prerelease, draft, html_url: `https://github.com/apiad/aje/releases/tag/${tag}`,
+  tag_name: tag, name: tag, prerelease, draft, html_url: `https://github.com/syalia-srl/aje/releases/tag/${tag}`,
   assets: [asset(`aje-${tag.slice(1)}-${code}.apk`), asset(`aje-${tag.slice(1)}-${code}.apk.sha256`)],
 });
 const RELEASES = [
@@ -37,7 +37,7 @@ test("checkForUpdate makes one request and takes the checksum from the asset dig
   const urls = [];
   const fetch = async (url) => { urls.push(url); return { ok: true, json: async () => RELEASES }; };
   const u = await checkForUpdate({ fetch, channel: "stable", currentCode: 255 });
-  assert.deepEqual(urls, ["https://api.github.com/repos/apiad/aje/releases?per_page=30"]);
+  assert.deepEqual(urls, ["https://api.github.com/repos/syalia-srl/aje/releases?per_page=30"]);
   assert.equal(u.sha256, "ab".repeat(32));
   assert.equal(await checkForUpdate({ fetch, channel: "stable", currentCode: 262 }), null);
 });
